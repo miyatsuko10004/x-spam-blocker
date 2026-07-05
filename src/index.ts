@@ -303,6 +303,7 @@ async function blockUser(page: Page, username: string): Promise<boolean> {
 async function run() {
   const history = loadHistory();
   let blockCount = 0;
+  const maxIterations = 3;
 
   console.log('Starting Playwright X Spam Blocker...');
   
@@ -345,91 +346,110 @@ async function run() {
     const currentUser = await getCurrentUser(page);
     console.log(`Current logged in user: ${currentUser ? `@${currentUser}` : 'unknown'}`);
 
-    // キーワードごとに検索を実行してスキャン
-    for (const keyword of config.spamTweetKeywords) {
-      console.log(`=== Starting search scan for keyword: "${keyword}" ===`);
+    for (let iter = 1; iter <= maxIterations; iter++) {
+      console.log(`\n==================================================`);
+      console.log(`=== RUNNING ITERATION ${iter}/${maxIterations} ===`);
+      console.log(`==================================================\n`);
 
       if (blockCount >= config.maxBlocksPerRun) {
         console.log(`Reached limit of max blocks per run (${config.maxBlocksPerRun}). Exiting loop.`);
         break;
       }
 
-      const targetUsers = await extractUsernamesFromSearch(page, keyword, currentUser);
-      console.log(`Found ${targetUsers.length} potential targets for keyword "${keyword}".`);
-
-      for (const username of targetUsers) {
-        // すでに処理済みならスキップ
-        if (history[username]) {
-          console.log(`Skipping @${username} (already scanned previously).`);
-          continue;
-        }
+      // キーワードごとに検索を実行してスキャン
+      for (const keyword of config.spamTweetKeywords) {
+        console.log(`=== Starting search scan for keyword: "${keyword}" ===`);
 
         if (blockCount >= config.maxBlocksPerRun) {
-          console.log(`Reached limit of max blocks per run (${config.maxBlocksPerRun}). Exiting loop.`);
           break;
         }
 
-        console.log('--------------------------------------------------');
-        console.log(`Processing @${username}...`);
+        const targetUsers = await extractUsernamesFromSearch(page, keyword, currentUser);
+        console.log(`Found ${targetUsers.length} potential targets for keyword "${keyword}".`);
 
-        const userInfo = await fetchUserInfo(page, username);
-        if (!userInfo) {
-          // アカウントが存在しない、または既にブロック済みの場合は履歴にスキップとして登録
-          history[username] = {
-            status: 'skipped',
-            timestamp: new Date().toISOString(),
-          };
-          saveHistory(history);
-          continue;
-        }
+        let skipCount = 0;
+        for (const username of targetUsers) {
+          // すでに処理済みならスキップ
+          if (history[username]) {
+            skipCount++;
+            continue;
+          }
 
-        console.log(`User Info fetched:`, {
-          ScreenName: userInfo.screenName,
-          Handle: userInfo.handle,
-          Followers: userInfo.followerCount,
-          BioSnippet: userInfo.bio.substring(0, 50).replace(/\n/g, ' ') + '...',
-          RecentTweetsCount: userInfo.recentTweets?.length || 0
-        });
+          if (blockCount >= config.maxBlocksPerRun) {
+            break;
+          }
 
-        // スパム判定
-        const detection = detectSpam(userInfo);
-        if (detection.isSpam) {
-          console.log(`[SPAM DETECTED] @${username} matches spam criteria.`);
-          console.log(`Reasons:`, detection.reasons);
+          console.log('--------------------------------------------------');
+          console.log(`Processing @${username}...`);
 
-          if (config.dryRun) {
-            console.log(`[DRY RUN] Would block @${username}`);
+          const userInfo = await fetchUserInfo(page, username);
+          if (!userInfo) {
+            // アカウントが存在しない、または既にブロック済みの場合は履歴にスキップとして登録
             history[username] = {
-              status: 'skipped', // ドライランなので実際はブロックしないが履歴に保存
-              reasons: detection.reasons,
-              timestamp: new Date().toISOString()
+              status: 'skipped',
+              timestamp: new Date().toISOString(),
             };
-          } else {
-            const success = await blockUser(page, username);
-            if (success) {
-              blockCount++;
+            saveHistory(history);
+            continue;
+          }
+
+          console.log(`User Info fetched:`, {
+            ScreenName: userInfo.screenName,
+            Handle: userInfo.handle,
+            Followers: userInfo.followerCount,
+            BioSnippet: userInfo.bio.substring(0, 50).replace(/\n/g, ' ') + '...',
+            RecentTweetsCount: userInfo.recentTweets?.length || 0
+          });
+
+          // スパム判定
+          const detection = detectSpam(userInfo);
+          if (detection.isSpam) {
+            console.log(`[SPAM DETECTED] @${username} matches spam criteria.`);
+            console.log(`Reasons:`, detection.reasons);
+
+            if (config.dryRun) {
+              console.log(`[DRY RUN] Would block @${username}`);
               history[username] = {
-                status: 'blocked',
+                status: 'skipped', // ドライランなので実際はブロックしないが履歴に保存
                 reasons: detection.reasons,
                 timestamp: new Date().toISOString()
               };
             } else {
-              console.log(`Failed to block @${username}`);
+              const success = await blockUser(page, username);
+              if (success) {
+                blockCount++;
+                history[username] = {
+                  status: 'blocked',
+                  reasons: detection.reasons,
+                  timestamp: new Date().toISOString()
+                };
+              } else {
+                console.log(`Failed to block @${username}`);
+              }
             }
+          } else {
+            console.log(`[SAFE] @${username} did not match spam criteria.`);
+            history[username] = {
+              status: 'skipped',
+              timestamp: new Date().toISOString()
+            };
           }
-        } else {
-          console.log(`[SAFE] @${username} did not match spam criteria.`);
-          history[username] = {
-            status: 'skipped',
-            timestamp: new Date().toISOString()
-          };
+
+          // 履歴を即座に保存
+          saveHistory(history);
+
+          // ブロック間または巡回間のインターバルディレイ
+          await delay(config.minDelayMs, config.maxDelayMs);
         }
+        
+        if (skipCount > 0) {
+          console.log(`Skipped ${skipCount} accounts because they were scanned previously.`);
+        }
+      }
 
-        // 履歴を即座に保存
-        saveHistory(history);
-
-        // ブロック間または巡回間のインターバルディレイ
-        await delay(config.minDelayMs, config.maxDelayMs);
+      if (iter < maxIterations && blockCount < config.maxBlocksPerRun) {
+        console.log(`\nIteration ${iter} completed. Waiting 20 seconds before starting the next search iteration...`);
+        await page.waitForTimeout(20000);
       }
     }
 
