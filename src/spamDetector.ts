@@ -1,90 +1,16 @@
 import { config } from './config.js';
 
-export interface UserInfo {
-  screenName: string;
-  handle: string;
-  bio: string;
-  followerCount: number;
-  replyContent?: string;
-  recentTweets?: string[];
-}
-
-export interface DetectionResult {
-  isSpam: boolean;
-  reasons: string[];
-}
-
 /**
- * ユーザー情報からスパムアカウントかどうかを判定する
+ * ツイート本文がスパムのコピペ定型文に該当するか判定する
+ * 設定された「TARGET_SPAM_CONTAINS」のキーワードがすべて含まれている場合にスパムとみなす（AND判定）
  */
-export function detectSpam(user: UserInfo): DetectionResult {
-  const reasons: string[] = [];
-
-  const bioLower = user.bio.toLowerCase();
-  const screenNameLower = user.screenName.toLowerCase();
-  const handleLower = user.handle.toLowerCase();
-
-  // 1. キーワード判定
-  for (const keyword of config.spamKeywords) {
-    if (bioLower.includes(keyword)) {
-      reasons.push(`Bio contains spam keyword: "${keyword}"`);
-    }
-    if (screenNameLower.includes(keyword)) {
-      reasons.push(`Screen name contains spam keyword: "${keyword}"`);
-    }
+export function isSpamTweet(text: string): boolean {
+  const textLower = text.toLowerCase();
+  
+  if (config.targetSpamContains.length === 0) {
+    return false;
   }
-
-  // 2. フォロワー数判定
-  if (config.maxFollowerCount >= 0 && user.followerCount <= config.maxFollowerCount) {
-    reasons.push(`Follower count (${user.followerCount}) is below limit (${config.maxFollowerCount})`);
-  }
-
-  // 3. リプライ内容の判定 (オプション)
-  if (user.replyContent) {
-    const replyLower = user.replyContent.toLowerCase();
-    
-    // プロフ誘導をチェック
-    const profRedirectKeywords = ['プロフ', 'プロフィール', '固定', 'こっち', '見て'];
-    const hasRedirect = profRedirectKeywords.some(kw => replyLower.includes(kw));
-    const hasAdultKeywords = ['オナ', '動画', 'カジノ', '副業'].some(kw => replyLower.includes(kw));
-
-    if (hasRedirect && hasAdultKeywords) {
-      reasons.push(`Reply content looks like profile-redirect spam`);
-    }
-  }
-
-  // 4. 最新ポスト内容の判定 (オプション)
-  if (user.recentTweets && user.recentTweets.length > 0) {
-    for (const tweet of user.recentTweets) {
-      const tweetLower = tweet.toLowerCase();
-      for (const keyword of config.spamTweetKeywords) {
-        if (tweetLower.includes(keyword)) {
-          reasons.push(`Recent tweet contains spam keyword: "${keyword}" (Tweet: "${tweet.substring(0, 40).replace(/\n/g, ' ')}...")`);
-        }
-      }
-    }
-  }
-
-  // 判定条件の評価：
-  // 1. プロフィール/表示名に危険なスパムワードがある場合は無条件でスパムとする
-  // 2. 最新ツイートにスパムキーワードが含まれており、かつフォロワー数が少ない場合にスパムとする
-  // 3. フォロワー数が少なく、かつリプライ内容にスパム傾向（プロフ誘導）がある場合にスパムとする
-  const hasSpamKeyword = reasons.some(r => r.startsWith('Bio contains') || r.startsWith('Screen name contains'));
-  const isLowFollowers = reasons.some(r => r.startsWith('Follower count'));
-  const hasSpamReply = reasons.some(r => r.startsWith('Reply content'));
-  const hasSpamTweet = reasons.some(r => r.startsWith('Recent tweet contains'));
-
-  let isSpam = false;
-  if (hasSpamKeyword) {
-    isSpam = true;
-  } else if (isLowFollowers && hasSpamTweet) {
-    isSpam = true;
-  } else if (isLowFollowers && hasSpamReply) {
-    isSpam = true;
-  }
-
-  return {
-    isSpam,
-    reasons
-  };
+  
+  // すべてのキーワードが含まれているか確認
+  return config.targetSpamContains.every(keyword => textLower.includes(keyword));
 }
