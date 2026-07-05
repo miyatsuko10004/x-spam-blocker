@@ -46,13 +46,18 @@ function detectSpam(user) {
         }
     }
     // 判定条件の評価：
-    // 危険なキーワードがBio/表示名に含まれる、または最新ポストに含まれる場合、またはフォロワー数が閾値以下かつリプライ誘導がある場合をスパムとする。
+    // 1. プロフィール/表示名に危険なスパムワードがある場合は無条件でスパムとする
+    // 2. 最新ツイートにスパムキーワードが含まれており、かつフォロワー数が少ない場合にスパムとする
+    // 3. フォロワー数が少なく、かつリプライ内容にスパム傾向（プロフ誘導）がある場合にスパムとする
     const hasSpamKeyword = reasons.some(r => r.startsWith('Bio contains') || r.startsWith('Screen name contains'));
     const isLowFollowers = reasons.some(r => r.startsWith('Follower count'));
     const hasSpamReply = reasons.some(r => r.startsWith('Reply content'));
     const hasSpamTweet = reasons.some(r => r.startsWith('Recent tweet contains'));
     let isSpam = false;
-    if (hasSpamKeyword || hasSpamTweet) {
+    if (hasSpamKeyword) {
+        isSpam = true;
+    }
+    else if (isLowFollowers && hasSpamTweet) {
         isSpam = true;
     }
     else if (isLowFollowers && hasSpamReply) {
