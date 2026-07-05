@@ -237,18 +237,19 @@ async function blockUser(page: Page, username: string): Promise<boolean> {
   console.log(`Attempting to block @${username}...`);
 
   // 3点リーダーボタン (More Actions)
-  const actionButton = page.locator('div[data-testid="userActions"]');
+  const actionButton = page.locator('[data-testid="userActions"], [aria-label="もっと見る"], [aria-label="More"]').first();
+  await actionButton.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   if (!(await actionButton.isVisible())) {
     console.error('Could not find user actions button (3-dots).');
     return false;
   }
   await actionButton.click();
-  await page.waitForTimeout(1000); // メニュー表示を待つ
 
   // メニュー内のブロックボタンを探してクリック
   const blockMenu = page.locator('div[role="menuitem"]').filter({ 
-    hasText: new RegExp(`(ブロック|Block @${username})`, 'i') 
+    hasText: new RegExp(`(ブロック|Block)`, 'i') 
   }).first();
+  await blockMenu.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
 
   if (!(await blockMenu.isVisible())) {
     console.error('Block option not found in menu.');
@@ -257,10 +258,10 @@ async function blockUser(page: Page, username: string): Promise<boolean> {
     return false;
   }
   await blockMenu.click();
-  await page.waitForTimeout(1000); // ダイアログ表示を待つ
 
   // 確認ダイアログの「ブロック」ボタン
-  const confirmButton = page.locator('div[data-testid="confirmationSheetConfirm"]');
+  const confirmButton = page.locator('[data-testid="confirmationSheetConfirm"], button:has-text("ブロック"), button:has-text("Block")').first();
+  await confirmButton.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
   if (!(await confirmButton.isVisible())) {
     console.error('Confirmation dialog block button not found.');
     return false;
