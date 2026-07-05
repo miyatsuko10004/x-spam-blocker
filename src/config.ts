@@ -11,6 +11,7 @@ export interface Config {
   maxDelayMs: number;
   spamKeywords: string[];
   maxFollowerCount: number;
+  spamTweetKeywords: string[];
 }
 
 const parseKeywords = (val?: string): string[] => {
@@ -26,6 +27,7 @@ export const config: Config = {
   maxDelayMs: parseInt(process.env.MAX_DELAY_MS || '15000', 10),
   spamKeywords: parseKeywords(process.env.SPAM_KEYWORDS || '副業,オナ,プロフ見て,稼げる,裏アカ,固定ツイ,アフィリエイト,バイナリー,配り'),
   maxFollowerCount: parseInt(process.env.MAX_FOLLOWER_COUNT || '15', 10),
+  spamTweetKeywords: parseKeywords(process.env.SPAM_TWEET_KEYWORDS || '銘柄情報を希望,資料をまとめました,ご希望の方はDM'),
 };
 
 console.log('--- Configuration Loaded ---');
@@ -35,4 +37,5 @@ console.log(`Max Blocks Per Run: ${config.maxBlocksPerRun}`);
 console.log(`Delay Range: ${config.minDelayMs}ms - ${config.maxDelayMs}ms`);
 console.log(`Spam Keywords: [${config.spamKeywords.join(', ')}]`);
 console.log(`Max Followers: ${config.maxFollowerCount}`);
+console.log(`Spam Tweet Keywords: [${config.spamTweetKeywords.join(', ')}]`);
 console.log('----------------------------');

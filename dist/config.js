@@ -50,6 +50,7 @@ exports.config = {
     maxDelayMs: parseInt(process.env.MAX_DELAY_MS || '15000', 10),
     spamKeywords: parseKeywords(process.env.SPAM_KEYWORDS || '副業,オナ,プロフ見て,稼げる,裏アカ,固定ツイ,アフィリエイト,バイナリー,配り'),
     maxFollowerCount: parseInt(process.env.MAX_FOLLOWER_COUNT || '15', 10),
+    spamTweetKeywords: parseKeywords(process.env.SPAM_TWEET_KEYWORDS || '銘柄情報を希望,資料をまとめました,ご希望の方はDM'),
 };
 console.log('--- Configuration Loaded ---');
 console.log(`DRY_RUN: ${exports.config.dryRun}`);
@@ -58,4 +59,5 @@ console.log(`Max Blocks Per Run: ${exports.config.maxBlocksPerRun}`);
 console.log(`Delay Range: ${exports.config.minDelayMs}ms - ${exports.config.maxDelayMs}ms`);
 console.log(`Spam Keywords: [${exports.config.spamKeywords.join(', ')}]`);
 console.log(`Max Followers: ${exports.config.maxFollowerCount}`);
+console.log(`Spam Tweet Keywords: [${exports.config.spamTweetKeywords.join(', ')}]`);
 console.log('----------------------------');

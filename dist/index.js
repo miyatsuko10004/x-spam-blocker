@@ -206,11 +206,29 @@ async function fetchUserInfo(page, username) {
     else {
         console.log('Follower element not found or hidden.');
     }
+    // 最新のポスト（ツイート）の取得（最大2件）
+    const recentTweets = [];
+    try {
+        // ツイートが表示されるのを待つ
+        await page.waitForSelector('article[data-testid="tweet"]', { timeout: 5000 }).catch(() => { });
+        const tweetTextElements = page.locator('article[data-testid="tweet"] div[data-testid="tweetText"]');
+        const count = Math.min(await tweetTextElements.count(), 2);
+        for (let i = 0; i < count; i++) {
+            const text = await tweetTextElements.nth(i).innerText().catch(() => '');
+            if (text) {
+                recentTweets.push(text);
+            }
+        }
+    }
+    catch (e) {
+        console.log(`Failed to fetch recent tweets for @${username}:`, e);
+    }
     return {
         screenName,
         handle: `@${username}`,
         bio,
-        followerCount
+        followerCount,
+        recentTweets
     };
 }
 // アカウントをブロックする
@@ -315,7 +333,8 @@ async function run() {
                 ScreenName: userInfo.screenName,
                 Handle: userInfo.handle,
                 Followers: userInfo.followerCount,
-                BioSnippet: userInfo.bio.substring(0, 50).replace(/\n/g, ' ') + '...'
+                BioSnippet: userInfo.bio.substring(0, 50).replace(/\n/g, ' ') + '...',
+                RecentTweetsCount: userInfo.recentTweets?.length || 0
             });
             // スパム判定
             const detection = (0, spamDetector_js_1.detectSpam)(userInfo);
