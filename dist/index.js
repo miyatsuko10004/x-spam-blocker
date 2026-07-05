@@ -101,25 +101,54 @@ async function extractTargetsFromSearch(page, keyword, currentUser) {
     const searchUrl = `https://x.com/search?q=${query}&f=live`;
     console.log(`Navigating to search page: ${searchUrl}`);
     await page.goto(searchUrl);
-    // 明示的に「最新」または「Latest」タブのリンクを探してクリックする
+    // ツイート要素、または「Retry」ボタンがロードされるのを待つ
+    let isLoaded = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            // タイムライン要素、またはリトライボタンを待つ
+            await Promise.race([
+                page.waitForSelector('article[data-testid="tweet"]', { timeout: 8000 }),
+                page.waitForSelector('button:has-text("Retry"), button:has-text("再読み込み"), [role="button"]:has-text("Retry")', { timeout: 8000 })
+            ]);
+            // リトライボタンが表示されている場合はクリックして再試行
+            const retryButton = page.locator('button:has-text("Retry"), button:has-text("再読み込み"), [role="button"]:has-text("Retry")').first();
+            if (await retryButton.isVisible()) {
+                console.log('Detected "Something went wrong" screen. Clicking Retry button...');
+                await retryButton.click();
+                await page.waitForTimeout(3000);
+                continue;
+            }
+            isLoaded = true;
+            break;
+        }
+        catch (e) {
+            console.log(`Load attempt ${attempt + 1} failed. Re-navigating...`);
+            await page.goto(searchUrl);
+            await page.waitForTimeout(3000);
+        }
+    }
+    if (!isLoaded) {
+        console.log('Failed to load search results timeline after retries.');
+        const screenshotPath = path.join(LOG_DIR, `search_timeout_${Date.now()}.png`);
+        await page.screenshot({ path: screenshotPath }).catch(() => { });
+        console.log(`Saved debug screenshot to ${screenshotPath}`);
+    }
+    // もし最新(Latest)タブが選択されていない場合は明示的にクリックする
     try {
         const latestTab = page.locator('div[role="tablist"] a').filter({
             hasText: /^(最新|Latest)$/i
         }).first();
-        await latestTab.waitFor({ state: 'visible', timeout: 5000 }).catch(() => { });
-        if (await latestTab.isVisible()) {
-            console.log('Clicking "Latest" tab explicitly...');
+        // selected状態ではない場合のみクリック
+        const isSelected = await latestTab.getAttribute('aria-selected') === 'true';
+        if (await latestTab.isVisible() && !isSelected) {
+            console.log('Latest tab is not selected. Clicking "Latest" tab explicitly...');
             await latestTab.click();
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(3000);
         }
     }
     catch (e) {
-        console.log('Could not find or switch to Latest tab dynamically, staying on loaded page.');
+        // スルー
     }
-    // ツイート要素がロードされるのを待つ
-    await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 }).catch(() => {
-        console.log('Timeout waiting for search results.');
-    });
     // より多くのツイートをロードするためにページをスクロールする（20回スクロールして深くスキャン）
     console.log('Scrolling to load more search results (20 scroll iterations)...');
     try {
