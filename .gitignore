@@ -70,3 +70,6 @@ env/
 .env.test.local
 .env.production.local
 .env.*.local
+
+# Playwright user data
+user_data/

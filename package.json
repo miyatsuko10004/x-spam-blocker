@@ -1,0 +1,23 @@
+{
+  "name": "x-spam-blocker",
+  "version": "1.0.0",
+  "description": "Auto blocker for spam accounts on Twitter/X using Playwright",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.2"
+  }
+}
