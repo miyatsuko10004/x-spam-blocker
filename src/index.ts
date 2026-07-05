@@ -114,6 +114,22 @@ async function extractUsernamesFromSearch(page: Page, keyword: string, currentUs
   console.log(`Navigating to search page: ${searchUrl}`);
   await page.goto(searchUrl);
 
+  // Xの仕様やセッション状態により、f=live パラメータを指定しても話題(Top)タブが表示されることがあるため、
+  // 明示的に「最新」または「Latest」タブのリンクを探してクリックする
+  try {
+    const latestTab = page.locator('div[role="tablist"] a').filter({
+      hasText: /^(最新|Latest)$/i
+    }).first();
+    await latestTab.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    if (await latestTab.isVisible()) {
+      console.log('Clicking "Latest" tab explicitly...');
+      await latestTab.click();
+      await page.waitForTimeout(2000); // タブ切り替えの読み込みを待つ
+    }
+  } catch (e) {
+    console.log('Could not find or switch to Latest tab dynamically, staying on loaded page.');
+  }
+
   // ツイート要素がロードされるのを待つ
   await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 }).catch(() => {
     console.log('Timeout waiting for search results.');
