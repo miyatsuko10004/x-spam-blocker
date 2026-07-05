@@ -149,6 +149,17 @@ async function extractUsernamesFromSearch(page, keyword, currentUser) {
     await page.waitForSelector('article[data-testid="tweet"]', { timeout: 15000 }).catch(() => {
         console.log('Timeout waiting for search results.');
     });
+    // より多くのツイートをロードするためにページをスクロールする（5回スクロール）
+    console.log('Scrolling to load more search results...');
+    try {
+        for (let i = 0; i < 5; i++) {
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            await page.waitForTimeout(1500); // レンダリングと次のロードを待つ
+        }
+    }
+    catch (e) {
+        console.log('Failed during scrolling:', e);
+    }
     // タイムラインの各ツイートからユーザーリンクを抽出
     const hrefs = await page.evaluate(() => {
         const links = Array.from(document.querySelectorAll('article[data-testid="tweet"] a[href^="/"]'));
