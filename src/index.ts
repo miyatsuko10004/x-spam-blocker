@@ -135,12 +135,12 @@ async function extractUsernamesFromSearch(page: Page, keyword: string, currentUs
     console.log('Timeout waiting for search results.');
   });
 
-  // より多くのツイートをロードするためにページをスクロールする（5回スクロール）
-  console.log('Scrolling to load more search results...');
+  // より多くのツイートをロードするためにページをスクロールする（20回スクロールして深くスキャン）
+  console.log('Scrolling to load more search results (20 scroll iterations)...');
   try {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 20; i++) {
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await page.waitForTimeout(1500); // レンダリングと次のロードを待つ
+      await page.waitForTimeout(1000); // ロード待ち
     }
   } catch (e) {
     console.log('Failed during scrolling:', e);
